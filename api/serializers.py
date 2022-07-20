@@ -25,34 +25,34 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
                   'email', 'hospital_number', 'dateofbirth', 'address', 'postcode']
 
 
-# Tech Support Register Serializer
-class TechRegSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TechRegister
-        fields = ['name', 'username', 'email', 'phone_number',
-                  'address', 'password1', 'password2']
+# # Tech Support Register Serializer
+# class TechRegSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = TechRegister
+#         fields = ['name', 'username', 'email', 'phone_number',
+#                   'address', 'password1', 'password2']
 
 
-# Tech Support Login Serializer
-class TechLoginSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TechRegister
-        fields = ['username', 'password1']
+# # Tech Support Login Serializer
+# class TechLoginSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = TechRegister
+#         fields = ['username', 'password1']
 
 
-# Doctor Register Serializer
-class DoctorRegSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DoctorRegister
-        fields = ['name', 'username', 'email', 'phone_number',
-                  'hospital_address', 'password1', 'password2']
+# # Doctor Register Serializer
+# class DoctorRegSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = DoctorRegister
+#         fields = ['name', 'username', 'email', 'phone_number',
+#                   'hospital_address', 'password1', 'password2']
 
 
-# Doctor Login Serializer
-class DoctorLoginSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DoctorRegister
-        fields = ['username', 'password1']
+# # Doctor Login Serializer
+# class DoctorLoginSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = DoctorRegister
+#         fields = ['username', 'password1']
 
 
 # Pain Details Serializer
