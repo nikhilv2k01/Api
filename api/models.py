@@ -1,10 +1,14 @@
+from operator import mod
+from statistics import mode
 from django.db import models
+from django.contrib.auth.models import User
 # Create your models here.
 
 
 # Patient Register
 class PatientRegister(models.Model):
     patient_id = models.AutoField(primary_key=True)
+    auth_user = models.ForeignKey(User,on_delete=models.CASCADE,null=True)
     firstname = models.CharField(max_length=20)
     lastname = models.CharField(max_length=15)
     username = models.CharField(max_length=50)
