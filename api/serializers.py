@@ -14,7 +14,13 @@ class PatientRegSerializer(serializers.ModelSerializer):
 class PatientLoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientRegister
-        fields = ['username', 'password1']
+        fields = ['username', 'password1', 'time_stamp']
+
+
+class PatientForgetPasswordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PatientRegister
+        fields = ['email']
 
 
 # Patient Update Serializer
@@ -22,7 +28,7 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientRegister
         fields = ['firstname', 'lastname',  'phone_number',
-                  'email', 'hospital_number', 'dateofbirth', 'address', 'postcode']
+                  'email', 'hospital_number', 'address', 'postcode']
 
 
 # Tech Support Register Serializer
@@ -66,8 +72,9 @@ class PainDetailsSerializer(serializers.ModelSerializer):
 class PainStartSerializer(serializers.ModelSerializer):
     class Meta:
         model = PainStartTable
-        fields = ['accident_at_work', 'accident_at_home', 'following_illness',
-                  'following_surgery', 'road_traffic_accident', 'pain_just_began', 'others']
+        # fields = ['accident_at_work', 'accident_at_home', 'following_illness',
+        #           'following_surgery', 'road_traffic_accident', 'pain_just_began', 'others']
+        fields = "__all__"
 
 
 # Pain Type Serializer
