@@ -17,36 +17,135 @@ from datetime import datetime
 from .send_mail import send_forget_password_mail
 import uuid
 
+from rest_framework import generics, status, viewsets, response
+
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+
 
 # Create your views here.
 
+class PasswordReset(generics.GenericAPIView):
+    """
+    Request for Password Reset Link.
+    """
 
-# Forget Password
-@api_view(['POST'])
-def forget_password(request):
+    serializer_class = PatientForgetPasswordSerializer
 
-    forget_data = JSONParser().parse(request)
-    forget_serializer = PatientForgetPasswordSerializer(data=forget_data)
+    def post(self, request):
+        """
+        Create token.
+        """
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.data["email"]
+        user = User.objects.filter(email=email).first()
+        if user:
+            encoded_pk = urlsafe_base64_encode(force_bytes(user.pk))
+            token = PasswordResetTokenGenerator().make_token(user)
+            reset_url = reverse(
+                "reset-password",
+                kwargs={"encoded_pk": encoded_pk, "token": token},
+            )
+            reset_link = f"http://127.0.0.1:8000{reset_url}"
+            send_email = PatientRegister.objects.get(email=email).email
 
-    email = forget_data['email']
-    user = PatientRegister.objects.filter(email=email)
+            send_forget_password_mail(send_email,reset_link)
 
-    if forget_serializer.is_valid():
-        if not user:
-            return JsonResponse({"message": "No user found with this email"})
+            return response.Response(
+                {
+                    "message": "success"
+                },
+                status=status.HTTP_200_OK,
+            )
         else:
-            user_obj = PatientRegister.objects.get(email=email).email
-            token = str(uuid.uuid4())
+            return response.Response(
+                {"message": "User doesn't exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            forget_serializer.forget_password_token = token
-            forget_password_token = forget_serializer.forget_password_token
-            PatientRegister.objects.filter(email=email).update(
-                forget_password_token=forget_password_token)
 
-            send_forget_password_mail(user_obj, token)
 
-            return JsonResponse({"message": "We've emailed you an instructions for setting your password, If an account exists with the email you entered. You should receive them shortly. If you don't receive an email, please make sure you've entered the address you registered with, and check your spam folder."})
-    return JsonResponse(forget_serializer.errors)
+class ResetPasswordAPI(generics.GenericAPIView):
+    """
+    Verify and Reset Password Token View.
+    """
+
+    serializer_class = PatientChangePasswordSerializer
+
+    def patch(self, request, *args, **kwargs):
+        """
+        Verify token & encoded_pk and then reset the password.
+        """
+        serializer = self.serializer_class(
+            data=request.data, context={"kwargs": kwargs}
+        )
+        serializer.is_valid(raise_exception=True)
+        return response.Response(
+            {"message": "Password reset complete"},
+            status=status.HTTP_200_OK,
+        )
+
+# @api_view(['POST'])
+# def change_password(request,token):
+#     context = {}
+
+#     try:
+#         patient_obj = PatientRegister.objects.get(forget_password_token=token)
+#         context = {'user_id':patient_obj.patient_id}
+
+#         change_password_data = JSONParser().parse(request)
+#         change_password_serializer = PatientChangePasswordSerializer(data=change_password_data)
+
+#         if change_password_serializer.is_valid():
+#             newpassword = change_password_data['password1']
+#             confirmpassword = change_password_data['password2']
+#             user_id = change_password_data['user_id']
+
+#             if user_id is None:
+#                 return JsonResponse({"message":"No user id found"})
+#             if newpassword != confirmpassword:
+#                 return JsonResponse({"message":"Password does not match"})
+#             else:
+#                 user_obj = User.objects.get(id=user_id)
+#                 user_obj.set_password(newpassword)
+#                 user_obj.save()
+#                 PatientRegister.objects.filter(patient_id=user_id).update(password1=newpassword,password2=newpassword)
+#                 return JsonResponse({"message":"success","msg":"Your password has been set. You may go ahead and log in now."})
+#     except Exception as e:
+#         print(e)
+#     return JsonResponse(context)
+   
+# Forget Password
+# @api_view(['POST'])
+# def forget_password(request):
+
+#     forget_data = JSONParser().parse(request)
+#     forget_serializer = PatientForgetPasswordSerializer(data=forget_data)
+
+#     email = forget_data['email']
+#     user = PatientRegister.objects.filter(email=email)
+
+#     if forget_serializer.is_valid():
+#         if not user:
+#             return JsonResponse({"message": "No user found with this email"})
+#         else:
+#             user_obj = PatientRegister.objects.get(email=email).email
+#             token = str(uuid.uuid4())
+
+#             forget_serializer.forget_password_token = token
+#             forget_password_token = forget_serializer.forget_password_token
+#             PatientRegister.objects.filter(email=email).update(
+#                 forget_password_token=forget_password_token)
+
+#             send_forget_password_mail(user_obj, token)
+
+#             return JsonResponse({"message":"success","msg":"We've emailed you an instructions for setting your password, If an account exists with the email you entered. You should receive them shortly. If you don't receive an email, please make sure you've entered the address you registered with, and check your spam folder."})
+#     return JsonResponse(forget_serializer.errors)
 
 
 # Patient Register

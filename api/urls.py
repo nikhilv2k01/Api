@@ -21,5 +21,17 @@ urlpatterns = [
     url(r'^pain-start$', views.pain_start),
     url(r'^pain-type$', views.pain_type),
 
-    url(r'^forget-password/$', views.forget_password),
+    # url(r'^forget-password/$', views.forget_password),
+    # path('change-password/<token>/', views.change_password),
+
+     path(
+        "reset-password/",
+        views.PasswordReset.as_view(),
+        name="reset-password",
+    ),
+    path(
+        "change-password/<str:encoded_pk>/<str:token>/",
+        views.ResetPasswordAPI.as_view(),
+        name="reset-password",
+    ),
 ]

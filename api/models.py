@@ -1,3 +1,4 @@
+from time import time
 from django.db import models
 from django.contrib.auth.models import User
 from datetime import datetime, date
@@ -12,7 +13,7 @@ class PatientRegister(models.Model):
     firstname = models.CharField(max_length=20)
     lastname = models.CharField(max_length=15)
     username = models.CharField(max_length=50)
-    phone_number = models.BigIntegerField()
+    phone_number = models.CharField(max_length=20)
     email = models.EmailField(max_length=50)
     password1 = models.CharField(max_length=10)
     password2 = models.CharField(max_length=10)
@@ -23,7 +24,7 @@ class PatientRegister(models.Model):
     postcode = models.CharField(max_length=10, default="")
 
     time_stamp = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    forget_password_token = models.CharField(max_length=100, blank=True)
+    forget_password_token = models.CharField(max_length=100,  blank=True)
 
     class Meta:
         db_table = "patient_reg"
