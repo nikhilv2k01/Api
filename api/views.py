@@ -1,6 +1,4 @@
-import json
-from os import times
-from tkinter import E
+import email
 from django.forms import model_to_dict
 from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
@@ -10,185 +8,82 @@ from .models import *
 from .serializers import *
 from django.db.models import Q
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
 
 from datetime import datetime
 
-from .send_mail import send_forget_password_mail
-import uuid
+from .send_mail import send_email_verification_mail, send_forget_password_mail
 
-from rest_framework import generics, status, viewsets, response
+from rest_framework import generics, status, response
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
+import uuid
+
 
 # Create your views here.
-
-class PasswordReset(generics.GenericAPIView):
-    """
-    Request for Password Reset Link.
-    """
-
-    serializer_class = PatientForgetPasswordSerializer
-
-    def post(self, request):
-        """
-        Create token.
-        """
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.data["email"]
-        user = User.objects.filter(email=email).first()
-        if user:
-            encoded_pk = urlsafe_base64_encode(force_bytes(user.pk))
-            token = PasswordResetTokenGenerator().make_token(user)
-            reset_url = reverse(
-                "reset-password",
-                kwargs={"encoded_pk": encoded_pk, "token": token},
-            )
-            reset_link = f"http://127.0.0.1:8000{reset_url}"
-            send_email = PatientRegister.objects.get(email=email).email
-
-            send_forget_password_mail(send_email,reset_link)
-
-            return response.Response(
-                {
-                    "message": "success"
-                },
-                status=status.HTTP_200_OK,
-            )
-        else:
-            return response.Response(
-                {"message": "User doesn't exists"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-
-
-class ResetPasswordAPI(generics.GenericAPIView):
-    """
-    Verify and Reset Password Token View.
-    """
-
-    serializer_class = PatientChangePasswordSerializer
-
-    def patch(self, request, *args, **kwargs):
-        """
-        Verify token & encoded_pk and then reset the password.
-        """
-        serializer = self.serializer_class(
-            data=request.data, context={"kwargs": kwargs}
-        )
-        serializer.is_valid(raise_exception=True)
-        return response.Response(
-            {"message": "Password reset complete"},
-            status=status.HTTP_200_OK,
-        )
-
-# @api_view(['POST'])
-# def change_password(request,token):
-#     context = {}
-
-#     try:
-#         patient_obj = PatientRegister.objects.get(forget_password_token=token)
-#         context = {'user_id':patient_obj.patient_id}
-
-#         change_password_data = JSONParser().parse(request)
-#         change_password_serializer = PatientChangePasswordSerializer(data=change_password_data)
-
-#         if change_password_serializer.is_valid():
-#             newpassword = change_password_data['password1']
-#             confirmpassword = change_password_data['password2']
-#             user_id = change_password_data['user_id']
-
-#             if user_id is None:
-#                 return JsonResponse({"message":"No user id found"})
-#             if newpassword != confirmpassword:
-#                 return JsonResponse({"message":"Password does not match"})
-#             else:
-#                 user_obj = User.objects.get(id=user_id)
-#                 user_obj.set_password(newpassword)
-#                 user_obj.save()
-#                 PatientRegister.objects.filter(patient_id=user_id).update(password1=newpassword,password2=newpassword)
-#                 return JsonResponse({"message":"success","msg":"Your password has been set. You may go ahead and log in now."})
-#     except Exception as e:
-#         print(e)
-#     return JsonResponse(context)
-   
-# Forget Password
-# @api_view(['POST'])
-# def forget_password(request):
-
-#     forget_data = JSONParser().parse(request)
-#     forget_serializer = PatientForgetPasswordSerializer(data=forget_data)
-
-#     email = forget_data['email']
-#     user = PatientRegister.objects.filter(email=email)
-
-#     if forget_serializer.is_valid():
-#         if not user:
-#             return JsonResponse({"message": "No user found with this email"})
-#         else:
-#             user_obj = PatientRegister.objects.get(email=email).email
-#             token = str(uuid.uuid4())
-
-#             forget_serializer.forget_password_token = token
-#             forget_password_token = forget_serializer.forget_password_token
-#             PatientRegister.objects.filter(email=email).update(
-#                 forget_password_token=forget_password_token)
-
-#             send_forget_password_mail(user_obj, token)
-
-#             return JsonResponse({"message":"success","msg":"We've emailed you an instructions for setting your password, If an account exists with the email you entered. You should receive them shortly. If you don't receive an email, please make sure you've entered the address you registered with, and check your spam folder."})
-#     return JsonResponse(forget_serializer.errors)
 
 
 # Patient Register
 @api_view(['POST'])
 def patient_register(request):
-
+    print("python register")
     patient_data = JSONParser().parse(request)
     patient_serializer = PatientRegSerializer(data=patient_data)
 
-    queryset = PatientRegister.objects.filter(
-        Q(username=patient_data['username']) | Q(email=patient_data['email']))
+    user_exist = PatientRegister.objects.filter(
+        username=patient_data['username'])
+    email_exist = PatientRegister.objects.filter(email=patient_data['email'])
 
+    email = patient_data['email']
+    username = patient_data['username']
     password1 = patient_data['password1']
     password2 = patient_data['password2']
-    username = patient_data['username']
-    email = patient_data['email']
 
-    data = {}
-    if patient_serializer.is_valid():
-        if not queryset:
+    user = User.objects.filter(email=email).first()
+    try:
+
+        if patient_serializer.is_valid():
+
+            if user_exist:
+                return JsonResponse({'message': 'Username already exist'})
+
+            if email_exist:
+                return JsonResponse({'message': 'Email already exist'})
+
             if password1 == password2:
-                patient_serializer.save()
+
+                auth_token = str(uuid.uuid4())
+                patient_serializer.save(auth_token=auth_token)
                 user = User.objects.create_user(
                     username=username, email=email, password=password1)
                 user.save()
 
-                patient_serializer.auth_user_id = user.id
-                auth = patient_serializer.auth_user_id
+                verify_link = f'http://localhost:3000/verify/{auth_token}'
+                # verify_link = f'http://127.0.0.1:8000/api/verify/{auth_token}/'
 
-                patient_serializer.save(auth_user_id=auth)
+                send_email_verification_mail(email, verify_link)
 
-                token = Token.objects.create(user=user)
-                data['message'] = 'success'
-                data['token'] = token.key
+                data = [patient_serializer.data]
 
-                return JsonResponse(data)
+                return JsonResponse({
+                    "status": True,
+                    "status_code": status.HTTP_200_OK,
+                    "message": "success",
+                    "auth_token": auth_token,
+                    "data": data,
+                    })
 
             else:
                 return JsonResponse({'message': 'Password does not match'})
-        else:
-            return JsonResponse({'message': 'Email or Username already exist'})
 
-    return JsonResponse(patient_serializer.errors)
+        return JsonResponse(patient_serializer.errors)
+
+    except Exception as e:
+        print(e)
 
 
 # Patient Login
@@ -203,34 +98,45 @@ def patient_login(request):
 
     if '@' in user_name:
         user_exist = PatientRegister.objects.filter(
-            email=user_name, password1=password).exists()
+            email=user_name, password1=password).first()
 
     else:
         user_exist = PatientRegister.objects.filter(
-            username=user_name, password1=password).exists()
-
-    if '@' in user_name:
-        data = PatientRegister.objects.get(
-            email=user_name, password1=password).patient_id
-    else:
-        data = PatientRegister.objects.get(
-            username=user_name, password1=password).patient_id
+            username=user_name, password1=password).first()
+    
+    
 
     if patient_serializer.is_valid():
         if user_exist:
-            if data:
-                current_datetime = datetime.now()
+            if not user_exist.is_verified:
+                return JsonResponse({
+                    "message": "Your account is not verified check your mail."
+                })
+            current_datetime = datetime.now()
 
-                print("sfdsfdsffddf", current_datetime)
-                patient_serializer.time_stamp = current_datetime
-                time_stamp = patient_serializer.time_stamp
-                PatientRegister.objects.filter(
-                    username=user_name).update(time_stamp=time_stamp)
+            patient_serializer.time_stamp = current_datetime
+            time_stamp = patient_serializer.time_stamp
+            PatientRegister.objects.filter(
+                username=user_name).update(time_stamp=time_stamp)
 
-                # patient_serializer.save()
+            if '@' in user_name:
+                id = PatientRegister.objects.filter(
+                    email=user_name, password1=password).first()
+            else:
+                id = PatientRegister.objects.filter(
+                    username=user_name, password1=password).first()
 
-                return JsonResponse({'message': 'success', 'id': data})
-
+            user_id = id.patient_id
+            data = [patient_serializer.data]
+            return JsonResponse({
+                'status': True,
+                'status_code': status.HTTP_200_OK,
+                'message': 'success',
+                'id': user_id,
+                'data': data,
+            })
+            
+                
         else:
             return JsonResponse({'message': 'Please enter a vaild details'})
     return JsonResponse(patient_serializer.errors)
@@ -239,6 +145,7 @@ def patient_login(request):
 # Patient Display and Update
 @api_view(['GET', 'PUT'])
 def patient_display_update(request, id):
+
     if request.method == 'GET':
         querySet = PatientRegister.objects.get(patient_id=id)
         data = {}
@@ -267,6 +174,112 @@ def patient_display_update(request, id):
             return JsonResponse(patient_serializer.data)
 
         return JsonResponse(patient_serializer.errors)
+
+
+# forget password link creating
+class PasswordReset(generics.GenericAPIView):
+    """
+    Request for Password Reset Link.
+    """
+
+    serializer_class = PatientForgetPasswordSerializer
+
+    def post(self, request):
+        """
+        Create token.
+        """
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.data["email"]
+        user = User.objects.filter(email=email).first()
+        try:
+
+            if user:
+                encoded_pk = urlsafe_base64_encode(force_bytes(user.pk))
+                token = PasswordResetTokenGenerator().make_token(user)
+                reset_url = reverse(
+                    "reset-password",
+                    kwargs={"encoded_pk": encoded_pk, "token": token},
+                )
+                reset_link = f"http://localhost:3000/ChangePassword{reset_url}"
+                send_email = PatientRegister.objects.get(email=email).email
+
+                send_forget_password_mail(send_email, reset_link)
+
+                return response.Response(
+                    {
+                        "message": "success",
+                        "encoded_pk": encoded_pk,
+                        "token": token
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return response.Response(
+                    {
+                        "message": "User doesn't exists"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except Exception as e:
+            print(e)
+
+# Changing Password
+class ChangePassword(generics.GenericAPIView):
+    """
+    Verify and Reset Password Token View.
+    """
+
+    serializer_class = PatientChangePasswordSerializer
+
+    def patch(self, request, *args, **kwargs):
+        """
+        Verify token & encoded_pk and then reset the password.
+        """
+        serializer = self.serializer_class(
+            data=request.data, context={"kwargs": kwargs}
+        )
+        if serializer.is_valid(raise_exception=True):
+            return response.Response(
+                {
+                    "message": "Password reset complete"
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return response.Response(serializer.errors)
+
+
+# Email verification
+@api_view(['POST'])
+def verify(request, auth_token):
+    try:
+        patient_obj = PatientRegister.objects.filter(auth_token=auth_token).first()
+        if patient_obj:
+            if patient_obj.is_verified:
+                return response.Response(
+                    {
+                        "message": "Your account is already verified."
+                    }
+                )
+            patient_obj.is_verified=True
+            patient_obj.save()
+            return response.Response(
+                {
+                    "message": "Your account has been verified.",
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return response.Response(
+                {
+                    "message": "Link is invalid or expired"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    except Exception as e:
+        print(e)
+    
 
 
 # Tech Support Register
@@ -347,7 +360,7 @@ def doctor_register(request):
         if not queryset:
             if password1 == password2:
                 doctor_serializer.save()
-                return JsonResponse({'message': ' Registered successfully'})
+                return JsonResponse({'message': 'success'})
             else:
                 return JsonResponse({'message': 'Password does not match'})
         else:
@@ -392,37 +405,112 @@ def doctor_display(request):
 
 
 # Pain Details
-@api_view(['POST'])
-def pain_details(request):
+@api_view(['POST', 'GET', 'PUT'])
+def pain_details(request, id):
 
-    details_data = JSONParser().parse(request)
-    details_serializer = PainDetailsSerializer(data=details_data)
+    if request.method == 'POST':
+        details_data = JSONParser().parse(request)
+        details_serializer = PainDetailsSerializer(data=details_data)
+        obj = PainDetails.objects.filter(patient_fk=id).first()
+        if details_serializer.is_valid():
+            if not obj:
+                details_serializer.patient_fk_id = id
+                fk = details_serializer.patient_fk_id
+                details_serializer.save(patient_fk_id=fk)
+                return JsonResponse({'message': "success"})
+            else:
+                pass
+        return JsonResponse(details_serializer.errors)
 
-    if details_serializer.is_valid():
-        details_serializer.save()
-        return JsonResponse({'message': details_data})
-    return JsonResponse(details_serializer.errors)
+    elif request.method == 'PUT':
+        pain_data = PainDetails.objects.filter(
+            patient_fk=id).first()
+        pain_serializer = PainDetailsSerializer(
+            instance=pain_data, data=request.data)
+        if pain_serializer.is_valid():
+            pain_serializer.save()
+        return JsonResponse(pain_serializer.data)
+
+    else:
+        querySet = PainDetails.objects.get(patient_fk=id)
+        data = {}
+
+        if querySet:
+            data = model_to_dict(querySet, fields=[
+                'year_pain_began', 'onset_of_pain', 'gender', 'comments'])
+        return Response(data)
 
 
 # Pain Start
-@api_view(['POST'])
-def pain_start(request):
-    start_data = JSONParser().parse(request)
-    start_serializer = PainStartSerializer(data=start_data)
+@api_view(['POST', 'PUT', 'GET'])
+def pain_start(request, id):
 
-    if start_serializer.is_valid():
-        start_serializer.save()
-        return JsonResponse({'message': start_data})
-    return JsonResponse(start_serializer.errors)
+    if request.method == 'POST':
+        details_data = JSONParser().parse(request)
+        serializer = PainStartSerializer(data=details_data)
+        obj = PainStartTable.objects.filter(patient_fk=id).first()
+
+        if serializer.is_valid(raise_exception=True):
+            if not obj:
+                serializer.patient_fk_id = id
+                fk = serializer.patient_fk_id
+                serializer.save(patient_fk_id=fk)
+                return JsonResponse({"message": "success"})
+            else:
+                pass
+        return JsonResponse(serializer.errors)
+
+    elif request.method == 'PUT':
+
+        pain_data = PainStartTable.objects.filter(
+            patient_fk=id).first()
+        serializer = PainStartSerializer(
+            instance=pain_data, data=request.data)
+
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        return JsonResponse(serializer.data)
+
+    else:
+        querySet = PainStartTable.objects.get(patient_fk=id)
+        data = {}
+
+        if querySet:
+            data = model_to_dict(querySet, fields=[
+                'accident_at_work', 'accident_at_home', 'following_illness',
+                'following_surgery', 'road_traffic_accident', 'pain_just_began', 'others'])
+        return Response(data)
 
 
 # Pain Type
-@api_view(['POST'])
-def pain_type(request):
-    type_data = JSONParser().parse(request)
-    type_serializer = PainTypeSerializer(data=type_data)
+@api_view(['POST', 'PUT', 'GET'])
+def pain_type(request, id):
 
-    if type_serializer.is_valid():
-        type_serializer.save()
-        return JsonResponse({'message': type_data})
-    return JsonResponse(type_serializer.errors)
+    if request.method == 'POST':
+        type_data = JSONParser().parse(request)
+        type_serializer = PainTypeSerializer(data=type_data)
+
+        if type_serializer.is_valid(raise_exception=True):
+            type_serializer.save()
+            return JsonResponse({'message': type_data})
+        return JsonResponse(type_serializer.errors)
+
+    elif request.method == 'PUT':
+        pain_data = PainTypeTable.objects.filter(
+            patient_fk=id).first()
+        serializer = PainTypeSerializer(
+            instance=pain_data, data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+        return JsonResponse(serializer.data)
+
+    else:
+        querySet = PainTypeTable.objects.get(patient_fk=id)
+        data = {}
+
+        if querySet:
+            data = model_to_dict(querySet, fields=[
+                'throbbing', 'shooting', 'stabbing',
+                'sharp', 'cramping', 'gnawing', 'hot_burning', 'aching', 'heavy', 'tender', 'splitting', 'tiring_exhausting', 'sickening', 'fearful', 'pushing_cruel'])
+        return Response(data)

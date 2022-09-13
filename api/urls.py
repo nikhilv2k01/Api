@@ -1,9 +1,10 @@
+from atexit import register
 from . import views
 from django.urls import path
 from django.urls import re_path as url
 
 urlpatterns = [
-    url(r'^patient/register$', views.patient_register),
+    url(r'^patient/register$', views.patient_register,name="patient-register"),
     url(r'^patient/login$', views.patient_login),
     path('patient/display/update/<int:id>', views.patient_display_update),
 
@@ -17,12 +18,10 @@ urlpatterns = [
     url(r'^doctor/login$', views.doctor_login),
     url(r'^doctor/display$', views.doctor_display),
 
-    url(r'^pain-details$', views.pain_details),
-    url(r'^pain-start$', views.pain_start),
-    url(r'^pain-type$', views.pain_type),
+    path('pain-details/<int:id>', views.pain_details),
+    path('pain-start/<int:id>', views.pain_start),
+    path('pain-type/<int:id>', views.pain_type),
 
-    # url(r'^forget-password/$', views.forget_password),
-    # path('change-password/<token>/', views.change_password),
 
      path(
         "reset-password/",
@@ -31,7 +30,10 @@ urlpatterns = [
     ),
     path(
         "change-password/<str:encoded_pk>/<str:token>/",
-        views.ResetPasswordAPI.as_view(),
+        views.ChangePassword.as_view(),
         name="reset-password",
     ),
+    # path('token',views.token,name="token_send"),
+    # path('success',views.success,name="success"),
+    path('verify/<auth_token>',views.verify,name="verify"),
 ]

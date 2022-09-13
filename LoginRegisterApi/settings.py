@@ -11,8 +11,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
-from datetime import timedelta
-from django.conf import settings
+import datetime
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,7 +26,7 @@ SECRET_KEY = 'django-insecure-jgnr%l&x3isj3sjqkgz)htdn99ap-ub1^=*es8!jz9)&iiw75e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -142,10 +141,10 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# SESSION_EXPIRE_SECONDS = 10
 
 # PASSWORD_RESET_TIMEOUT_DAYS=1
 PASSWORD_RESET_TIMEOUT = 86400
+TOKEN_EXPIRE_TIME = datetime.timedelta(days=7)
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 

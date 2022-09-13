@@ -11,7 +11,7 @@ class PatientRegSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientRegister
         fields = ['firstname', 'lastname', 'username',
-                  'email', 'phone_number', 'password1', 'password2', 'auth_user_id']
+                  'email', 'phone_number', 'password1', 'password2']
 
 
 # Patient Login Serializer
@@ -25,7 +25,8 @@ class PatientLoginSerializer(serializers.ModelSerializer):
 class PatientChangePasswordSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientRegister
-        fields = ['password1','password2']
+        fields = ['password1', 'password2']
+
     def validate(self, data):
         """
         Verify token and encoded_pk and then set new password.
@@ -55,9 +56,6 @@ class PatientChangePasswordSerializer(serializers.ModelSerializer):
         return data
 
 
-    
-
-
 # Forget Password serializer
 class PatientForgetPasswordSerializer(serializers.ModelSerializer):
     class Meta:
@@ -69,7 +67,7 @@ class PatientForgetPasswordSerializer(serializers.ModelSerializer):
 class PatientUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientRegister
-        fields = ['firstname', 'lastname',  'phone_number',
+        fields = ['firstname', 'lastname',  'phone_number','dateofbirth',
                   'email', 'hospital_number', 'address', 'postcode']
 
 
@@ -92,8 +90,8 @@ class TechLoginSerializer(serializers.ModelSerializer):
 class DoctorRegSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorRegister
-        fields = ['name', 'username', 'email', 'phone_number',
-                  'hospital_address', 'password1', 'password2']
+        fields = ['firstname', 'lastname', 'username',
+                  'specialization', 'hospital_id', 'email','phone_number','password1','password2']
 
 
 # Doctor Login Serializer
@@ -107,6 +105,14 @@ class DoctorLoginSerializer(serializers.ModelSerializer):
 class PainDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PainDetails
+        fields = ['year_pain_began', 'onset_of_pain', 'gender', 'comments']
+
+
+# Pain Details update serializer
+class PainDetailsUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PainDetails
+        # fields = "__all__"
         fields = ['year_pain_began', 'onset_of_pain', 'gender', 'comments']
 
 
