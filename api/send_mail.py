@@ -14,7 +14,7 @@ def send_forget_password_mail(email, reset_link):
     return True
 
 
-# Email verification 
+# Email verification
 def send_email_verification_mail(email, verify_link):
 
     subject = 'Your accounts need to be verified'
@@ -22,3 +22,4 @@ def send_email_verification_mail(email, verify_link):
     email_from = settings.EMAIL_HOST_USER
     recipient_list = [email]
     send_mail(subject, message, email_from, recipient_list)
+    return True

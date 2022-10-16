@@ -42,6 +42,8 @@ class PatientChangePasswordSerializer(serializers.ModelSerializer):
         pk = urlsafe_base64_decode(encoded_pk).decode()
         user = User.objects.get(pk=pk)
         patient = PatientRegister.objects.filter(patient_id=pk).first()
+        check_token = PasswordResetTokenGenerator().check_token(user, token)
+        print("check_token",check_token)
         if not PasswordResetTokenGenerator().check_token(user, token):
             raise serializers.ValidationError("The reset token is invalid")
         else:
@@ -67,7 +69,7 @@ class PatientForgetPasswordSerializer(serializers.ModelSerializer):
 class PatientUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientRegister
-        fields = ['firstname', 'lastname',  'phone_number','dateofbirth',
+        fields = ['firstname', 'lastname',  'phone_number', 'dateofbirth',
                   'email', 'hospital_number', 'address', 'postcode']
 
 
@@ -91,7 +93,7 @@ class DoctorRegSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorRegister
         fields = ['firstname', 'lastname', 'username',
-                  'specialization', 'hospital_id', 'email','phone_number','password1','password2']
+                  'specialization', 'hospital_id', 'email', 'phone_number', 'password1', 'password2']
 
 
 # Doctor Login Serializer
@@ -106,28 +108,3 @@ class PainDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PainDetails
         fields = ['year_pain_began', 'onset_of_pain', 'gender', 'comments']
-
-
-# Pain Details update serializer
-class PainDetailsUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PainDetails
-        # fields = "__all__"
-        fields = ['year_pain_began', 'onset_of_pain', 'gender', 'comments']
-
-
-# Pain Start Serializer
-class PainStartSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PainStartTable
-        # fields = ['accident_at_work', 'accident_at_home', 'following_illness',
-        #           'following_surgery', 'road_traffic_accident', 'pain_just_began', 'others']
-        fields = "__all__"
-
-
-# Pain Type Serializer
-class PainTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PainTypeTable
-        fields = ['throbbing', 'shooting', 'stabbing',
-                  'sharp', 'cramping', 'gnawing', 'hot_burning', 'aching', 'heavy', 'tender', 'splitting', 'tiring_exhausting', 'sickening', 'fearful', 'pushing_cruel']

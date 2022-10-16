@@ -1,4 +1,5 @@
-import email
+from email import message
+from select import select
 from django.forms import model_to_dict
 from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
@@ -21,7 +22,8 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
-import uuid
+import jwt
+import datetime
 
 
 # Create your views here.
@@ -43,7 +45,7 @@ def patient_register(request):
     password1 = patient_data['password1']
     password2 = patient_data['password2']
 
-    user = User.objects.filter(email=email).first()
+    # user = User.objects.filter(email=email).first()
     try:
 
         if patient_serializer.is_valid():
@@ -56,26 +58,33 @@ def patient_register(request):
 
             if password1 == password2:
 
-                auth_token = str(uuid.uuid4())
-                patient_serializer.save(auth_token=auth_token)
                 user = User.objects.create_user(
                     username=username, email=email, password=password1)
                 user.save()
 
+                payload = {
+                    'id': user.id,
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=60),
+                    'iat': datetime.datetime.utcnow()
+                }
+                auth_token = jwt.encode(payload, 'secret', algorithm='HS256')
+                patient_serializer.save(auth_token=auth_token)
+
                 verify_link = f'http://localhost:3000/verify/{auth_token}'
-                # verify_link = f'http://127.0.0.1:8000/api/verify/{auth_token}/'
 
                 send_email_verification_mail(email, verify_link)
 
                 data = [patient_serializer.data]
-
-                return JsonResponse({
+                response = Response()
+                response.set_cookie(key='jwt', value=auth_token, httponly=True)
+                response.data = {
                     "status": True,
                     "status_code": status.HTTP_200_OK,
                     "message": "success",
                     "auth_token": auth_token,
                     "data": data,
-                    })
+                }
+                return response
 
             else:
                 return JsonResponse({'message': 'Password does not match'})
@@ -103,8 +112,6 @@ def patient_login(request):
     else:
         user_exist = PatientRegister.objects.filter(
             username=user_name, password1=password).first()
-    
-    
 
     if patient_serializer.is_valid():
         if user_exist:
@@ -112,7 +119,7 @@ def patient_login(request):
                 return JsonResponse({
                     "message": "Your account is not verified check your mail."
                 })
-            current_datetime = datetime.now()
+            current_datetime = datetime.datetime.now()
 
             patient_serializer.time_stamp = current_datetime
             time_stamp = patient_serializer.time_stamp
@@ -135,45 +142,47 @@ def patient_login(request):
                 'id': user_id,
                 'data': data,
             })
-            
-                
+
         else:
             return JsonResponse({'message': 'Please enter a vaild details'})
     return JsonResponse(patient_serializer.errors)
 
 
-# Patient Display and Update
-@api_view(['GET', 'PUT'])
-def patient_display_update(request, id):
+# Patient Display
+@api_view(['GET'])
+def patient_display(request, id):
 
-    if request.method == 'GET':
-        querySet = PatientRegister.objects.get(patient_id=id)
-        data = {}
+    querySet = PatientRegister.objects.get(patient_id=id)
+    data = {}
 
-        if querySet:
-            data = model_to_dict(querySet, fields=[
-                'patient_id', 'firstname', 'lastname', 'phone_number', 'email', 'hospital_number', 'dateofbirth', 'address', 'postcode'])
-        return Response(data)
+    if querySet:
+        data = model_to_dict(querySet, fields=[
+            'patient_id', 'firstname', 'lastname', 'phone_number', 'email', 'hospital_number', 'dateofbirth', 'address', 'postcode'])
+    return Response(data)
 
-    else:
-        patient_data = PatientRegister.objects.get(
-            patient_id=id)
-        patient_serializer = PatientUpdateSerializer(
-            instance=patient_data, data=request.data)
 
-        queryset = PatientRegister.objects.filter(email=request.data['email'])
+# Patient Update
+@api_view(['PUT'])
+def patient_update(request, id):
 
-        if patient_serializer.is_valid():
-            if not queryset:
+    patient_data = PatientRegister.objects.get(
+        patient_id=id)
+    patient_serializer = PatientUpdateSerializer(
+        instance=patient_data, data=request.data)
+
+    queryset = PatientRegister.objects.filter(email=request.data['email'])
+
+    if patient_serializer.is_valid():
+        if not queryset:
+            patient_serializer.save()
+        elif patient_serializer.is_valid():
+            if patient_data.email == request.data['email']:
                 patient_serializer.save()
-            elif patient_serializer.is_valid():
-                if patient_data.email == request.data['email']:
-                    patient_serializer.save()
-                else:
-                    return JsonResponse({"message": "email already exists"})
-            return JsonResponse(patient_serializer.data)
+            else:
+                return JsonResponse({"message": "email already exists"})
+        return JsonResponse(patient_serializer.data)
 
-        return JsonResponse(patient_serializer.errors)
+    return JsonResponse(patient_serializer.errors)
 
 
 # forget password link creating
@@ -197,10 +206,12 @@ class PasswordReset(generics.GenericAPIView):
             if user:
                 encoded_pk = urlsafe_base64_encode(force_bytes(user.pk))
                 token = PasswordResetTokenGenerator().make_token(user)
+
                 reset_url = reverse(
                     "reset-password",
                     kwargs={"encoded_pk": encoded_pk, "token": token},
                 )
+                print("password token", reset_url)
                 reset_link = f"http://localhost:3000/ChangePassword{reset_url}"
                 send_email = PatientRegister.objects.get(email=email).email
 
@@ -224,6 +235,7 @@ class PasswordReset(generics.GenericAPIView):
         except Exception as e:
             print(e)
 
+
 # Changing Password
 class ChangePassword(generics.GenericAPIView):
     """
@@ -242,7 +254,7 @@ class ChangePassword(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             return response.Response(
                 {
-                    "message": "Password reset complete"
+                    "message": "success"
                 },
                 status=status.HTTP_200_OK,
             )
@@ -253,8 +265,10 @@ class ChangePassword(generics.GenericAPIView):
 # Email verification
 @api_view(['POST'])
 def verify(request, auth_token):
+
     try:
-        patient_obj = PatientRegister.objects.filter(auth_token=auth_token).first()
+        patient_obj = PatientRegister.objects.filter(
+            auth_token=auth_token).first()
         if patient_obj:
             if patient_obj.is_verified:
                 return response.Response(
@@ -262,7 +276,7 @@ def verify(request, auth_token):
                         "message": "Your account is already verified."
                     }
                 )
-            patient_obj.is_verified=True
+            patient_obj.is_verified = True
             patient_obj.save()
             return response.Response(
                 {
@@ -270,6 +284,7 @@ def verify(request, auth_token):
                 },
                 status=status.HTTP_200_OK,
             )
+
         else:
             return response.Response(
                 {
@@ -279,7 +294,6 @@ def verify(request, auth_token):
             )
     except Exception as e:
         print(e)
-    
 
 
 # Tech Support Register
@@ -404,113 +418,175 @@ def doctor_display(request):
     return JsonResponse({'message': json_data})
 
 
-# Pain Details
-@api_view(['POST', 'GET', 'PUT'])
+# Pain Questions
+@api_view(['POST'])
+def pain_selection(request, id):
+    selection_data = JSONParser().parse(request)
+
+    question_selection = selection_data.keys()
+
+    pain_start = selection_data['pain_start']
+    pain_now = selection_data['pain_now']
+
+    print('pain_start', pain_start)
+
+    for i in question_selection:  # questions
+        print("questions", i)
+
+        if "pain_start" == i:
+            print("yes pain_start")
+
+            for start in pain_start:
+
+                pain_start_answers = PainAnswers.objects.filter(answers=start)
+                patient_fk = id
+
+                if pain_start_answers:
+                    print("yes answers of pain_start", start)
+                    question_obj = PainQuestions.objects.get(questions=i)
+                    answer_obj = PainAnswers.objects.get(answers=start)
+                    question_fk = question_obj.id
+                    answer_fk = answer_obj.id
+                    key = True
+                    current_datetime = datetime.datetime.now()
+
+                    check_exist = PainSelection.objects.filter(
+                        patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk)
+
+                    if check_exist:
+                        print("check exist is true")
+                        PainSelection.objects.filter(
+                            patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk).update(key=False)
+                        print("updated key to false")
+
+                    pain_selection = PainSelection(
+                        patient_fk_id=patient_fk, question_fk_id=question_fk, answer_fk_id=answer_fk, key=key, time_stamp=current_datetime)
+
+                    pain_selection.save()
+                    print("saved.....")
+
+                else:
+                    print("no")
+                    return JsonResponse({"message": "Answers does not match"})
+
+        if "pain_now" == i:
+            print("yes pain_now")
+            for now in pain_now:
+                pain_now_answers = PainAnswers.objects.filter(answers=now)
+                patient_fk = id
+                if pain_now_answers:
+                    print("yes answers of pain_now ", now)
+                    question_obj = PainQuestions.objects.get(questions=i)
+                    answer_obj = PainAnswers.objects.get(answers=now)
+                    question_fk = question_obj.id
+                    answer_fk = answer_obj.id
+                    key = True
+                    current_datetime = datetime.datetime.now()
+
+                    check_exist = PainSelection.objects.filter(
+                        patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk)
+                    if check_exist:
+                        print("check exist is true")
+                        PainSelection.objects.filter(
+                            patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk).update(key=False)
+                        print("updated key to false")
+
+                    pain_selection = PainSelection(
+                        patient_fk_id=patient_fk, question_fk_id=question_fk, answer_fk_id=answer_fk, key=key, time_stamp=current_datetime)
+                    pain_selection.save()
+
+                else:
+                    print("no")
+                    return JsonResponse({"message": "Answers does not match"})
+
+    return JsonResponse({
+        'status': True,
+        'status_code': status.HTTP_200_OK,
+        'message': 'success',
+
+    })
+
+
+# Pain details
+@api_view(['POST'])
 def pain_details(request, id):
 
-    if request.method == 'POST':
-        details_data = JSONParser().parse(request)
-        details_serializer = PainDetailsSerializer(data=details_data)
-        obj = PainDetails.objects.filter(patient_fk=id).first()
-        if details_serializer.is_valid():
-            if not obj:
-                details_serializer.patient_fk_id = id
-                fk = details_serializer.patient_fk_id
-                details_serializer.save(patient_fk_id=fk)
-                return JsonResponse({'message': "success"})
-            else:
-                pass
-        return JsonResponse(details_serializer.errors)
+    details_data = JSONParser().parse(request)
+    serializer = PainDetailsSerializer(data=details_data)
+    obj = PainDetails.objects.filter(patient_fk=id).first()
+    year_pain_began = details_data['year_pain_began']
+    onset_of_pain = details_data['onset_of_pain']
+    gender = details_data['gender']
+    comments = details_data['comments']
 
-    elif request.method == 'PUT':
-        pain_data = PainDetails.objects.filter(
-            patient_fk=id).first()
-        pain_serializer = PainDetailsSerializer(
-            instance=pain_data, data=request.data)
-        if pain_serializer.is_valid():
-            pain_serializer.save()
-        return JsonResponse(pain_serializer.data)
-
-    else:
-        querySet = PainDetails.objects.get(patient_fk=id)
-        data = {}
-
-        if querySet:
-            data = model_to_dict(querySet, fields=[
-                'year_pain_began', 'onset_of_pain', 'gender', 'comments'])
-        return Response(data)
+    if serializer.is_valid():
+        if not obj:
+            serializer.patient_fk_id = id
+            fk = serializer.patient_fk_id
+            serializer.save(patient_fk_id=fk)
+            return JsonResponse({
+                'status': True,
+                'status_code': status.HTTP_200_OK,
+                'message': 'success',
+            })
+        else:
+            PainDetails.objects.filter(patient_fk=id).update(
+                year_pain_began=year_pain_began, onset_of_pain=onset_of_pain, gender=gender, comments=comments)
+            return JsonResponse({
+                'status': True,
+                'status_code': status.HTTP_200_OK,
+                'message': 'success',
+            })
+    return JsonResponse(serializer.errors)
 
 
-# Pain Start
-@api_view(['POST', 'PUT', 'GET'])
-def pain_start(request, id):
+# Pain Details display
 
-    if request.method == 'POST':
-        details_data = JSONParser().parse(request)
-        serializer = PainStartSerializer(data=details_data)
-        obj = PainStartTable.objects.filter(patient_fk=id).first()
+@api_view(['GET'])
+def pain_details_display(request, id):
+    pain_details = PainDetails.objects.get(patient_fk=id)
 
-        if serializer.is_valid(raise_exception=True):
-            if not obj:
-                serializer.patient_fk_id = id
-                fk = serializer.patient_fk_id
-                serializer.save(patient_fk_id=fk)
-                return JsonResponse({"message": "success"})
-            else:
-                pass
-        return JsonResponse(serializer.errors)
+    pain_start = PainQuestions.objects.get(questions="pain_start")
+    discribe_pain = PainQuestions.objects.get(questions="pain_now")
 
-    elif request.method == 'PUT':
-
-        pain_data = PainStartTable.objects.filter(
-            patient_fk=id).first()
-        serializer = PainStartSerializer(
-            instance=pain_data, data=request.data)
-
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-        return JsonResponse(serializer.data)
-
-    else:
-        querySet = PainStartTable.objects.get(patient_fk=id)
-        data = {}
-
-        if querySet:
-            data = model_to_dict(querySet, fields=[
-                'accident_at_work', 'accident_at_home', 'following_illness',
-                'following_surgery', 'road_traffic_accident', 'pain_just_began', 'others'])
-        return Response(data)
+    pain_start_selection = PainSelection.objects.filter(
+        question_fk=pain_start.id, patient_fk=id, key=True)
+        
+    discribe_pain_selection = PainSelection.objects.filter(
+        question_fk=discribe_pain.id, patient_fk=id, key=True)
 
 
-# Pain Type
-@api_view(['POST', 'PUT', 'GET'])
-def pain_type(request, id):
+    # Pain Start
+    pain_start_dict = {}
+    pain_start_data = []
+    for i in pain_start_selection:
+        print("pain start selection = ", i.answer_fk.answers)
+        pain_start_dict['answers'] = i.answer_fk.answers
+        pain_start_data.append(pain_start_dict['answers'])
+    print("pain start = ", pain_start_data)
 
-    if request.method == 'POST':
-        type_data = JSONParser().parse(request)
-        type_serializer = PainTypeSerializer(data=type_data)
 
-        if type_serializer.is_valid(raise_exception=True):
-            type_serializer.save()
-            return JsonResponse({'message': type_data})
-        return JsonResponse(type_serializer.errors)
+    # Discribe Pain
+    discribe_pain_dict = {}
+    discribe_pain_data = []
+    for i in discribe_pain_selection:
+        print("discribe pain selection = ", i.answer_fk.answers)
+        discribe_pain_dict['answers'] = i.answer_fk.answers
+        discribe_pain_data.append(discribe_pain_dict['answers'])
+    print("discribe pain = ", discribe_pain_data)
 
-    elif request.method == 'PUT':
-        pain_data = PainTypeTable.objects.filter(
-            patient_fk=id).first()
-        serializer = PainTypeSerializer(
-            instance=pain_data, data=request.data)
 
-        if serializer.is_valid():
-            serializer.save()
-        return JsonResponse(serializer.data)
+    # Pain Details
+    pain_details_data = {}
+    if pain_details:
+        pain_details_data = model_to_dict(
+            pain_details, fields=['year_pain_began', 'onset_of_pain', 'gender', 'comments'])
+    print("Pain Details = ", pain_details_data)
+    
 
-    else:
-        querySet = PainTypeTable.objects.get(patient_fk=id)
-        data = {}
+    return Response({
+        'pain_details': pain_details_data,
+        'pain_start': pain_start_data,
+        'discribe_pain': discribe_pain_data
 
-        if querySet:
-            data = model_to_dict(querySet, fields=[
-                'throbbing', 'shooting', 'stabbing',
-                'sharp', 'cramping', 'gnawing', 'hot_burning', 'aching', 'heavy', 'tender', 'splitting', 'tiring_exhausting', 'sickening', 'fearful', 'pushing_cruel'])
-        return Response(data)
+    })
