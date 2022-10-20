@@ -43,7 +43,7 @@ class PatientChangePasswordSerializer(serializers.ModelSerializer):
         user = User.objects.get(pk=pk)
         patient = PatientRegister.objects.filter(patient_id=pk).first()
         check_token = PasswordResetTokenGenerator().check_token(user, token)
-        print("check_token",check_token)
+        print("check_token", check_token)
         if not PasswordResetTokenGenerator().check_token(user, token):
             raise serializers.ValidationError("The reset token is invalid")
         else:
@@ -108,3 +108,11 @@ class PainDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PainDetails
         fields = ['year_pain_began', 'onset_of_pain', 'gender', 'comments']
+
+
+# Present pain pattern serializer
+class PresentPainPatternSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PainDetails
+        fields = ['often_pain', 'no_pain', 'pain_free', 'time_of_pain_best', 'time_of_pain_worst', 'increase_pain_comments',
+                  'decrease_pain_comments', 'relieve_pain_comments', 'trouble_sleep', 'medication_sleep', 'awake_pain', 'present_pain_comments']

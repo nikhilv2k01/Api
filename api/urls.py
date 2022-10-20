@@ -8,6 +8,18 @@ urlpatterns = [
     path('patient/display/<int:id>', views.patient_display),
     path('patient/update/<int:id>', views.patient_update),
 
+    path(
+        "reset-password/",
+        views.PasswordReset.as_view(),
+        name="reset-password",
+    ),
+    path(
+        "change-password/<str:encoded_pk>/<str:token>/",
+        views.ChangePassword.as_view(),
+        name="reset-password",
+    ),
+    path('verify/<auth_token>', views.verify, name="verify"),
+
 
     url(r'^tech/register$', views.tech_register),
     url(r'^tech/login$', views.tech_login),
@@ -23,15 +35,9 @@ urlpatterns = [
     path('pain-details/<int:id>', views.pain_details),
     path('pain-details-display/<int:id>', views.pain_details_display),
 
-    path(
-        "reset-password/",
-        views.PasswordReset.as_view(),
-        name="reset-password",
-    ),
-    path(
-        "change-password/<str:encoded_pk>/<str:token>/",
-        views.ChangePassword.as_view(),
-        name="reset-password",
-    ),
-    path('verify/<auth_token>', views.verify, name="verify"),
+
+    path('present-pain-pattern/<int:id>', views.present_pain_pattern,name="present_pain_pattern"),
+
+
+   
 ]

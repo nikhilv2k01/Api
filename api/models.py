@@ -1,3 +1,4 @@
+from email.policy import default
 from django.db import models
 from django.contrib.auth.models import User
 from datetime import datetime, date
@@ -99,10 +100,36 @@ class PainSelection(models.Model):
 # Pain Details
 class PainDetails(models.Model):
     patient_fk = models.ForeignKey(PatientRegister, on_delete=models.CASCADE)
-    year_pain_began = models.CharField(max_length=20, blank=True, null=True)
-    onset_of_pain = models.CharField(max_length=20, blank=True, null=True)
+    year_pain_began = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    onset_of_pain = models.CharField(
+        max_length=20, blank=True, null=True, default="")
     gender = models.CharField(max_length=20)
-    comments = models.TextField(blank=True)
+    comments = models.TextField(blank=True, null=True, default="")
+
+    often_pain = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    no_pain = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    pain_free = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    time_of_pain_best = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    time_of_pain_worst = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    increase_pain_comments = models.TextField(
+        blank=True, null=True, default="")
+    decrease_pain_comments = models.TextField(
+        blank=True, null=True, default="")
+    relieve_pain_comments = models.TextField(blank=True, null=True, default="")
+    trouble_sleep = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    medication_sleep = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    awake_pain = models.CharField(
+        max_length=20, blank=True, null=True, default="")
+    present_pain_comments = models.CharField(
+        max_length=20, blank=True, null=True, default="")
 
     class Meta:
         db_table = "pain_details"

@@ -1,3 +1,4 @@
+from ast import Return
 from email import message
 from select import select
 from django.forms import model_to_dict
@@ -425,23 +426,34 @@ def pain_selection(request, id):
 
     question_selection = selection_data.keys()
 
-    pain_start = selection_data['pain_start']
-    pain_now = selection_data['pain_now']
+    pain_Start = selection_data['pain_start']
+    discribe_pain = selection_data['discribe_pain']
 
-    print('pain_start', pain_start)
+    print("questions = ", question_selection)
+
+    print('pain start = ', pain_Start)
+    print('discribe pain = ', discribe_pain)
+
+    update = PainSelection.objects.filter(patient_fk=id)
+    for upd in update:
+
+        PainSelection.objects.filter(
+            patient_fk=id).update(key=False)
+        print("updated user key to false")
 
     for i in question_selection:  # questions
         print("questions", i)
 
-        if "pain_start" == i:
-            print("yes pain_start")
+        if i == "pain_start":
+            print("yes pain start")
 
-            for start in pain_start:
+            for start in pain_Start:
 
                 pain_start_answers = PainAnswers.objects.filter(answers=start)
                 patient_fk = id
 
                 if pain_start_answers:
+
                     print("yes answers of pain_start", start)
                     question_obj = PainQuestions.objects.get(questions=i)
                     answer_obj = PainAnswers.objects.get(answers=start)
@@ -455,29 +467,33 @@ def pain_selection(request, id):
 
                     if check_exist:
                         print("check exist is true")
-                        PainSelection.objects.filter(
-                            patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk).update(key=False)
-                        print("updated key to false")
+                        for check in check_exist:
+                            print("check id = ", check.id)
+                            PainSelection.objects.filter(
+                                patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk).update(key=False)
+                            print("updated key to false")
 
                     pain_selection = PainSelection(
                         patient_fk_id=patient_fk, question_fk_id=question_fk, answer_fk_id=answer_fk, key=key, time_stamp=current_datetime)
 
                     pain_selection.save()
                     print("saved.....")
-
                 else:
-                    print("no")
+                    print("not pain start")
                     return JsonResponse({"message": "Answers does not match"})
 
-        if "pain_now" == i:
-            print("yes pain_now")
-            for now in pain_now:
-                pain_now_answers = PainAnswers.objects.filter(answers=now)
+        if i == "discribe_pain":
+            print("yes discribe pain")
+
+            for discribe in discribe_pain:
+                discribe_pain_answers = PainAnswers.objects.filter(
+                    answers=discribe)
                 patient_fk = id
-                if pain_now_answers:
-                    print("yes answers of pain_now ", now)
+
+                if discribe_pain_answers:
+                    print("yes answers of pain_now ", discribe)
                     question_obj = PainQuestions.objects.get(questions=i)
-                    answer_obj = PainAnswers.objects.get(answers=now)
+                    answer_obj = PainAnswers.objects.get(answers=discribe)
                     question_fk = question_obj.id
                     answer_fk = answer_obj.id
                     key = True
@@ -485,19 +501,25 @@ def pain_selection(request, id):
 
                     check_exist = PainSelection.objects.filter(
                         patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk)
+
                     if check_exist:
                         print("check exist is true")
-                        PainSelection.objects.filter(
-                            patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk).update(key=False)
-                        print("updated key to false")
+                        for check in check_exist:
+                            print("check id = ", check.id)
+                            PainSelection.objects.filter(
+                                patient_fk=patient_fk, question_fk=question_fk, answer_fk=answer_fk).update(key=False)
+                            print("updated key to false")
 
                     pain_selection = PainSelection(
                         patient_fk_id=patient_fk, question_fk_id=question_fk, answer_fk_id=answer_fk, key=key, time_stamp=current_datetime)
                     pain_selection.save()
+                    print("saved.....")
 
                 else:
-                    print("no")
+                    print("not discribe pain")
                     return JsonResponse({"message": "Answers does not match"})
+        else:
+            print("not discribe pain")
 
     return JsonResponse({
         'status': True,
@@ -524,11 +546,13 @@ def pain_details(request, id):
             serializer.patient_fk_id = id
             fk = serializer.patient_fk_id
             serializer.save(patient_fk_id=fk)
+
             return JsonResponse({
                 'status': True,
                 'status_code': status.HTTP_200_OK,
                 'message': 'success',
             })
+
         else:
             PainDetails.objects.filter(patient_fk=id).update(
                 year_pain_began=year_pain_began, onset_of_pain=onset_of_pain, gender=gender, comments=comments)
@@ -544,17 +568,18 @@ def pain_details(request, id):
 
 @api_view(['GET'])
 def pain_details_display(request, id):
-    pain_details = PainDetails.objects.get(patient_fk=id)
 
-    pain_start = PainQuestions.objects.get(questions="pain_start")
-    discribe_pain = PainQuestions.objects.get(questions="pain_now")
+    pain_details = PainDetails.objects.filter(patient_fk=id).first()
+
+    pain_start = PainQuestions.objects.filter(questions="pain_start").first()
+    discribe_pain = PainQuestions.objects.filter(
+        questions="discribe_pain").first()
 
     pain_start_selection = PainSelection.objects.filter(
         question_fk=pain_start.id, patient_fk=id, key=True)
-        
+
     discribe_pain_selection = PainSelection.objects.filter(
         question_fk=discribe_pain.id, patient_fk=id, key=True)
-
 
     # Pain Start
     pain_start_dict = {}
@@ -565,7 +590,6 @@ def pain_details_display(request, id):
         pain_start_data.append(pain_start_dict['answers'])
     print("pain start = ", pain_start_data)
 
-
     # Discribe Pain
     discribe_pain_dict = {}
     discribe_pain_data = []
@@ -575,18 +599,57 @@ def pain_details_display(request, id):
         discribe_pain_data.append(discribe_pain_dict['answers'])
     print("discribe pain = ", discribe_pain_data)
 
-
     # Pain Details
     pain_details_data = {}
     if pain_details:
         pain_details_data = model_to_dict(
             pain_details, fields=['year_pain_began', 'onset_of_pain', 'gender', 'comments'])
     print("Pain Details = ", pain_details_data)
-    
 
     return Response({
         'pain_details': pain_details_data,
         'pain_start': pain_start_data,
         'discribe_pain': discribe_pain_data
-
     })
+
+
+@api_view(['PUT'])
+def present_pain_pattern(request, id):
+
+    # details_data = JSONParser().parse(request)
+    # serializer = PresentPainPatternSerializer(data=details_data)
+    obj = PainDetails.objects.get(patient_fk=id)
+    serializer = PresentPainPatternSerializer(
+        instance=obj, data=request.data)
+
+    no_pain = request.data['no_pain']
+    pain_free = request.data['pain_free']
+
+    # often_pain = details_data['often_pain']
+    # no_pain = details_data['no_pain']
+    # pain_free = details_data['pain_free']
+    # time_of_pain_best = details_data['time_of_pain_best']
+    # time_of_pain_worst = details_data['time_of_pain_worst']
+    # increase_pain_comments = details_data['increase_pain_comments']
+    # decrease_pain_comments = details_data['decrease_pain_comments']
+    # relieve_pain_comments = details_data['relieve_pain_comments']
+    # trouble_sleep = details_data['trouble_sleep']
+    # medication_sleep = details_data['medication_sleep']
+    # awake_pain = details_data['awake_pain']
+    # present_pain_comments = details_data['present_pain_comments']
+
+    if serializer.is_valid():
+        print("valid")
+
+        if no_pain == 'No':
+            pain_free = ""
+        print("pain_free", pain_free)
+        serializer.save(pain_free=pain_free)
+        # PainDetails.objects.filter(patient_fk=id).update(
+        #     often_pain=often_pain, no_pain=no_pain, pain_free=pain_free, time_of_pain_best=time_of_pain_best, time_of_pain_worst=time_of_pain_worst, increase_pain_comments=increase_pain_comments, decrease_pain_comments=decrease_pain_comments, relieve_pain_comments=relieve_pain_comments, trouble_sleep=trouble_sleep, medication_sleep=medication_sleep, awake_pain=awake_pain, present_pain_comments=present_pain_comments)
+        print("updated")
+        return JsonResponse({
+            'status': True,
+            'status_code': status.HTTP_200_OK,
+            'message': 'success',
+        })
